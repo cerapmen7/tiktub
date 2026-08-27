@@ -1,0 +1,32 @@
+{
+  "name": "tiktub",
+  "version": "1.0.0",
+  "description": "TikTub - AI-powered TikTok to YouTube automation with multi-channel & multi-agent architecture",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "agents/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspace=backend",
+    "install:all": "npm install",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces"
+  },
+  "keywords": ["tiktok", "youtube", "automation", "ai", "scraper", "repost"],
+  "author": "cerapmen7",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id               String    @id @default(cuid())
+  // Config dénormalisée pour simplicité query
+  handles          String    // JSON stringified string[]
+  delayMinutes     Int       @default(60)
+  limitPerHandle   Int       @default(10)
+  sortBy           String    @default("popular")
+  youtubeChannelId String?
+  makePublic       Boolean   @default(false)
+  addCredit        Boolean   @default(true)
+  asShorts         Boolean   @default(true)
+
+  status           String    @default("pending") // pending|running|paused|completed|failed|cancelled
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  nextRunAt        DateTime?
+
+  // Progress snapshot
+  progressTotal    Int       @default(0)
+  progressDone     Int       @default(0)
+  progressFailed   Int       @default(0)
+
+  // Snapshot config complète si besoin (json)
+  config           String?   // JSON full JobConfig
+
+  items            JobItem[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model JobItem {
+  id              String   @id @default(cuid())
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // TikTok video snapshot (JSON) + champs indexables
+  videoId         String
+  handle          String
+  title           String
+  description     String?
+  hashtags        String?  // JSON stringified string[]
+  coverUrl        String?
+  videoUrl        String?
+  wmVideoUrl      String?
+  playCount       Int?
+  likeCount       Int?
+  commentCount    Int?
+  shareCount      Int?
+  createTime      Int?
+  duration        Int?
+  musicTitle      String?
+  videoJson       String?  // JSON full TikTokVideo for restoration
+
+  status          String   @default("queued") // queued|downloading|downloaded|uploading|published|failed|skipped
+  youtubeVideoId  String?
+  youtubeUrl      String?
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  error           String?
+  attempts        Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([jobId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model YoutubeToken {
+  id            String   @id @default(cuid())
+  access_token  String?
+  refresh_token String?
+  expiry_date   BigInt?
+  token_type    String?
+  scope         String?
+  id_token      String?
+  // raw JSON complet si champs supplémentaires
+  rawJson       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AppSettings {
+  id                    String   @id @default("settings")
+  defaultDelayMinutes   Int      @default(60)
+  maxConcurrentUploads  Int      @default(2)
+  downloadDir           String   @default("./data/downloads")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}

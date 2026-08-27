@@ -1,0 +1,26 @@
+{
+  "name": "@tiktub/youtube-agent",
+  "version": "1.0.0",
+  "description": "Agent YouTube pour TikTub — OAuth2, listing chaînes et upload vidéos vers YouTube",
+  "type": "module",
+  "main": "dist/agents/youtube-agent/src/index.js",
+  "types": "dist/agents/youtube-agent/src/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "google-auth-library": "^9.14.0",
+    "googleapis": "^130.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["youtube", "oauth2", "upload", "googleapis", "tiktub"]
+}

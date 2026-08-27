@@ -1,0 +1,25 @@
+{
+  "name": "@tiktub/tiktok-agent",
+  "version": "1.0.0",
+  "description": "Agent TikTok pour TikTub — validation handle, fetching vidéos, téléchargement via tikwm.com",
+  "type": "module",
+  "main": "dist/agents/tiktok-agent/src/index.js",
+  "types": "dist/agents/tiktok-agent/src/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cheerio": "^1.0.0-rc.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["tiktok", "scraper", "tikwm", "tiktub"]
+}
