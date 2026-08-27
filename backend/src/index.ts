@@ -110,8 +110,9 @@ try {
     }
   }
 
-  if (frontendDist && NODE_ENV === "production") {
-    console.log(`[backend] Serving frontend static from ${frontendDist}`);
+  const shouldServeStatic = frontendDist && (NODE_ENV === "production" || process.env.ELECTRON === "true" || process.env.FORCE_SERVE_FRONTEND === "true");
+  if (shouldServeStatic && frontendDist) {
+    console.log(`[backend] Serving frontend static from ${frontendDist} (env=${NODE_ENV}, electron=${process.env.ELECTRON || "false"})`);
     app.use(express.static(frontendDist));
     // SPA fallback — sert index.html pour toute route non-API
     app.get("*", (req: Request, res: Response, next) => {
@@ -122,7 +123,7 @@ try {
       res.sendFile(path.join(frontendDist!, "index.html"));
     });
   } else if (frontendDist) {
-    console.log(`[backend] Frontend dist trouvé à ${frontendDist} mais NODE_ENV=${NODE_ENV}, static non servi (dev mode)`);
+    console.log(`[backend] Frontend dist trouvé à ${frontendDist} mais NODE_ENV=${NODE_ENV}, static non servi (dev mode - ELECTRON/FORCE_SERVE_FRONTEND non défini)`);
   } else {
     if (NODE_ENV === "production") console.warn("[backend] Frontend dist introuvable en production — API seule");
   }

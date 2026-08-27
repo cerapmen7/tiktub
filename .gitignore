@@ -10,18 +10,26 @@ lerna-debug.log*
 # Node
 node_modules
 dist
-build
+dist-electron
+dist-installer
 .parcel-cache
 .turbo
 
-# DB
+# DB (garde .gitkeep)
 *.db
 *.sqlite
 *.sqlite3
-data/
+!data/.gitkeep
+!data/downloads/.gitkeep
+data/db.json
+backend/data/
+!backend/data/.gitkeep
 downloads/
 tmp/
 temp/
+dist-installer/
+build-installer*.log
+electron-test*.log
 
 # Env
 .env
