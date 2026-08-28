@@ -11,16 +11,16 @@ export default function Navbar() {
     }`;
 
   return (
-    <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#0a0a0f]/80 border-b border-zinc-800/50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-[64px] items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 backdrop-blur-2xl bg-[#07070b]/70 border-b border-zinc-800/40 supports-[backdrop-filter]:bg-[#07070b]/60">
+      <div className="absolute inset-0 bg-gradient-to-r from-violet-500/[0.02] via-transparent to-pink-500/[0.02] pointer-events-none" />
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-[68px] items-center justify-between gap-4 relative">
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="h-9 w-9 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-violet-600/20 group-hover:shadow-violet-600/30 transition">
-            <Film className="h-5 w-5 text-white" />
-          </div>
+          <img src="/logo.svg" alt="TikTub" className="h-10 w-10 rounded-xl shadow-lg shadow-violet-600/20 group-hover:shadow-violet-600/30 group-hover:scale-[1.03] transition-all duration-300" />
           <div className="leading-none">
-            <div className="font-extrabold text-lg tracking-tight">TikTub</div>
-            <div className="text-[11px] font-medium text-zinc-400 -mt-0.5 tracking-widest uppercase">TikTok → YouTube</div>
+            <div className="font-extrabold text-[19px] tracking-tight font-display bg-gradient-to-r from-white via-violet-100 to-pink-100 bg-clip-text text-transparent">TikTub</div>
+            <div className="text-[10px] font-semibold text-zinc-400 -mt-0.5 tracking-[0.14em] uppercase">TikTok → YouTube • PRO</div>
           </div>
+          <span className="hidden sm:inline-flex ml-2 rounded-full bg-gradient-to-r from-violet-600 to-pink-500 px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase text-white shadow-md shadow-violet-600/20">PRO • STUDIO</span>
         </Link>
 
         <nav className="flex items-center gap-1.5 sm:gap-2">

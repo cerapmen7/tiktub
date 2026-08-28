@@ -35,13 +35,15 @@ export interface YouTubeChannel {
 
 export interface JobConfig {
   handles: string[]; // cleaned without @
-  delayMinutes: number; // délai entre publications
-  limitPerHandle: number; // nb vidéos par handle
+  delayMinutes: number; // délai entre publications — 1ère immédiate, suivantes espacées
+  limitPerHandle: number; // nb vidéos par handle (1-50) — ignoré si fetchAll=true
   sortBy: SortBy;
   youtubeChannelId?: string;
   makePublic: boolean; // true = public, false = private/unlisted
   addCredit: boolean;
   asShorts: boolean; // always true for tiktok port
+  fetchAll?: boolean; // si true, récupère toutes les vidéos depuis création (ignore limitPerHandle)
+  useScheduledPublish?: boolean; // si true, upload avec publishAt YouTube (pas besoin PC allumé)
 }
 
 export type JobStatus = "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";

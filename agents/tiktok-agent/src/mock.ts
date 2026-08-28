@@ -55,7 +55,7 @@ export function generateMockProfile(handle: string): TikTokProfile {
  */
 export function generateMockVideos(handle: string, count: number): TikTokVideo[] {
   const clean = handle.replace(/^@/, "").toLowerCase();
-  const n = Math.max(1, Math.min(count, 50));
+  const n = Math.max(1, Math.min(count, 1000));
   const now = Math.floor(Date.now() / 1000);
 
   return Array.from({ length: n }, (_, i) => {

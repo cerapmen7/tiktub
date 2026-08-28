@@ -13,17 +13,6 @@ import * as path from "node:path";
 import { google } from "googleapis";
 import type { youtube_v3 } from "googleapis";
 
-// Imports shared — hors rootDir, d'où @ts-ignore pour NodeNext (résolution ESM à l'exécution)
-// @ts-ignore
-import {
-  tiktokToYouTubeTitle as tiktokToYouTubeTitleShared,
-  tiktokToYouTubeDescription as tiktokToYouTubeDescriptionShared,
-  normalizeHashtags as normalizeHashtagsShared,
-  YOUTUBE_TITLE_LIMIT as YT_TITLE_LIMIT_SHARED,
-  YOUTUBE_DESC_LIMIT as YT_DESC_LIMIT_SHARED,
-  YOUTUBE_TAGS_LIMIT as YT_TAGS_LIMIT_SHARED,
-} from "../../../shared/constants.js";
-
 import type { YouTubeChannel } from "../../../shared/types.js";
 
 import {
@@ -44,14 +33,13 @@ import {
 } from "./mock.js";
 
 // ---------------------------------------------------------------------------
-// Constantes & fallbacks locaux (si import shared indisponible)
+// Constantes & helpers locaux — inline pour éviter import ESM/CJS cassé en packaged
 // ---------------------------------------------------------------------------
 
-const YOUTUBE_TITLE_LIMIT = (typeof YT_TITLE_LIMIT_SHARED === "number" ? YT_TITLE_LIMIT_SHARED : 100) as number;
-const YOUTUBE_DESC_LIMIT = (typeof YT_DESC_LIMIT_SHARED === "number" ? YT_DESC_LIMIT_SHARED : 5000) as number;
-const YOUTUBE_TAGS_LIMIT = (typeof YT_TAGS_LIMIT_SHARED === "number" ? YT_TAGS_LIMIT_SHARED : 15) as number;
+const YOUTUBE_TITLE_LIMIT = 100 as number;
+const YOUTUBE_DESC_LIMIT = 5000 as number;
+const YOUTUBE_TAGS_LIMIT = 15 as number;
 
-// Fallbacks identiques à shared/constants.ts (utilisés si l'import ESM échoue à la compilation)
 function tiktokToYouTubeTitleLocal(tiktokTitle: string, handle: string, _addCredit: boolean): string {
   let title = tiktokTitle.trim() || `TikTok @${handle}`;
   if (title.length > YOUTUBE_TITLE_LIMIT) title = title.slice(0, YOUTUBE_TITLE_LIMIT - 3) + "...";
@@ -77,27 +65,12 @@ function normalizeHashtagsLocal(tags: string[]): string[] {
 }
 
 function getTiktokToYouTubeTitle(): typeof tiktokToYouTubeTitleLocal {
-  try {
-    if (typeof tiktokToYouTubeTitleShared === "function") return tiktokToYouTubeTitleShared;
-  } catch {
-    // ignore
-  }
   return tiktokToYouTubeTitleLocal;
 }
 function getTiktokToYouTubeDescription(): typeof tiktokToYouTubeDescriptionLocal {
-  try {
-    if (typeof tiktokToYouTubeDescriptionShared === "function") return tiktokToYouTubeDescriptionShared;
-  } catch {
-    // ignore
-  }
   return tiktokToYouTubeDescriptionLocal;
 }
 function getNormalizeHashtags(): typeof normalizeHashtagsLocal {
-  try {
-    if (typeof normalizeHashtagsShared === "function") return normalizeHashtagsShared;
-  } catch {
-    // ignore
-  }
   return normalizeHashtagsLocal;
 }
 
@@ -196,6 +169,8 @@ export interface UploadMetadata {
   handle: string; // pour génération titre/description via helpers
   selfDeclaredMadeForKids?: boolean;
   addCredit?: boolean; // défaut true
+  publishAt?: string; // ISO 8601 pour publication programmée YouTube (pas besoin PC allumé)
+  scheduledPublishAt?: string; // alias
 }
 
 export interface UploadResult {
@@ -523,6 +498,22 @@ export async function uploadVideo(
     body: fs.createReadStream(filePath),
   };
 
+  // Gestion publication programmée YouTube (pas besoin PC allumé)
+  const rawPublishAt = (meta as any).publishAt || (meta as any).scheduledPublishAt;
+  let publishAt: string | undefined;
+  let effectivePrivacy = privacyStatus;
+  if (rawPublishAt) {
+    try {
+      const d = new Date(rawPublishAt);
+      if (!isNaN(d.getTime()) && d.getTime() > Date.now() + 60_000) {
+        // YouTube exige private + publishAt pour programmé
+        publishAt = d.toISOString();
+        effectivePrivacy = "private";
+        console.log(`[youtube-agent] publication programmée à ${publishAt} (YouTube gèrera la mise en public)`);
+      }
+    } catch {}
+  }
+
   const requestBody: youtube_v3.Schema$Video = {
     snippet: {
       title,
@@ -532,13 +523,14 @@ export async function uploadVideo(
       categoryId: "22",
     },
     status: {
-      privacyStatus,
+      privacyStatus: effectivePrivacy,
       madeForKids,
       selfDeclaredMadeForKids,
+      ...(publishAt ? { publishAt } : {}),
     },
   };
 
-  console.log(`[youtube-agent] envoi videos.insert part=snippet,status...`);
+  console.log(`[youtube-agent] envoi videos.insert part=snippet,status...${publishAt ? ` publishAt=${publishAt}` : ""}`);
 
   try {
     // @ts-ignore — googleapis overloads complexes, cast en any pour éviter conflit Readable vs GaxiosResponse

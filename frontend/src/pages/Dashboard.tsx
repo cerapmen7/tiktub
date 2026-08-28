@@ -105,12 +105,16 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2">
-            <LayoutDashboard className="h-7 w-7 text-violet-400" /> Dashboard
+      <div className="rounded-[20px] card-premium p-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/[0.06] via-transparent to-pink-500/[0.06] pointer-events-none" />
+        <div className="relative">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-3 font-display">
+            <span className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-600 to-pink-500 grid place-items-center shadow-lg shadow-violet-600/20">
+              <LayoutDashboard className="h-5 w-5 text-white" />
+            </span>
+            Dashboard <span className="hidden sm:inline-flex rounded-full bg-violet-500/15 border border-violet-500/20 px-2.5 py-1 text-xs font-bold tracking-widest uppercase text-violet-300">PRO</span>
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">Suivi temps réel des jobs — auto-refresh toutes les 3 secondes • queue items avec status, scheduledAt, liens YouTube</p>
+          <p className="text-sm text-zinc-400 mt-2 max-w-xl">Suivi temps réel • <span className="text-emerald-300 font-medium">1ère vidéo immédiate</span> puis programmée sur YouTube — plus besoin de laisser le PC allumé.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={fetchJobs} className="btn-secondary !px-3 !py-2 text-xs">

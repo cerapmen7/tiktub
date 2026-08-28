@@ -12,18 +12,20 @@ files:
   - backend/dist/**/*
   - backend/prisma/**/*
   - backend/package.json
+  - backend/.env
+  - .env
   - frontend/dist/**/*
   - shared/**/*
+  - agents/**/*
   - assets/**/*
   - data/.gitkeep
   - data/downloads/.gitkeep
-  # Ne pas empaqueter sources inutiles
+  # Ne pas empaqueter sources inutiles (mais garder agents/dist pour runtime)
   - "!**/*.ts"
   - "!**/*.map"
   - "!frontend/src/**/*"
   - "!backend/src/**/*"
   - "!electron/src/**/*"
-  - "!agents/**/*"
   - "!dist-installer{,/**/*}"
   - "!dist{,/**/*}"
   - "!.git{,/**/*}"
@@ -39,6 +41,7 @@ asarUnpack:
   - "backend/**/*"
   - "frontend/**/*"
   - "shared/**/*"
+  - "agents/**/*"
   - "dist-electron/**/*"
   - "node_modules/**/*"
 

@@ -181,8 +181,9 @@ export class Scheduler {
 
   /**
    * Calcule scheduledAt pour chaque item basé sur delayMinutes.
-   * Formule: item0 = now + delay, item1 = now + 2*delay, etc.
-   * Met status à "queued" pour les items non terminés.
+   * Formule: item0 = now (immédiat), item1 = now + delay, etc.
+   * Permet de poster la 1ère vidéo direct et programmer les suivantes.
+   * Si publishAt est utilisé, YouTube programme la publication (pas besoin PC allumé).
    */
   public scheduleJob(job: Job): void {
     if (!job || !job.id) throw new Error("[scheduler] scheduleJob: job invalide (id manquant)");
@@ -197,9 +198,8 @@ export class Scheduler {
       const item = job.items[i];
       // On ne replanifie que les items non terminés
       if (item.status === "published" || item.status === "failed" || item.status === "skipped") continue;
-      // queued, downloading etc -> on (re)met à queued avec nouveau schedule
-      // Pour respecter l'ordre d'origine, on utilise queueIndex pour le calcul
-      item.scheduledAt = new Date(now + safeDelay * 60 * 1000 * (queueIndex + 1)).toISOString();
+      // Première vidéo immédiate (queueIndex 0 => now), suivantes espacées de delay
+      item.scheduledAt = new Date(now + safeDelay * 60 * 1000 * queueIndex).toISOString();
       item.status = "queued";
       if (typeof item.attempts !== "number") item.attempts = 0;
       queueIndex++;
@@ -488,7 +488,7 @@ export class Scheduler {
 
   /**
    * Recalcule scheduledAt pour les items queued restants avec le nouveau délai.
-   * Formule: now + newDelay*(i+1) pour i dans [0..queued.length-1] trié par ancien scheduledAt.
+   * Formule: now + newDelay*idx (immédiat pour idx 0) trié par ancien scheduledAt.
    */
   public updateDelay(jobId: string, newDelayMinutes: number): void {
     const job = this.jobs.get(jobId);
@@ -507,7 +507,7 @@ export class Scheduler {
 
     const now = Date.now();
     queued.forEach((item, idx) => {
-      item.scheduledAt = new Date(now + safeDelay * 60 * 1000 * (idx + 1)).toISOString();
+      item.scheduledAt = new Date(now + safeDelay * 60 * 1000 * idx).toISOString();
     });
 
     // Mettre à jour nextRunAt et persister

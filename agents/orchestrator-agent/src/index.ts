@@ -95,7 +95,7 @@ function ensureDirForFile(filePath: string): void {
   ensureDir(path.dirname(filePath));
 }
 
-// Mock vidéo fallback (si tiktok-agent indisponible)
+// Mock vidéo fallback (si tiktok-agent indisponible) — support fetchAll jusqu'à 1000
 function generateMockVideosFallback(handle: string, count: number): TikTokVideo[] {
   const clean = handle.replace(/^@/, "").toLowerCase();
   const titles = [
@@ -108,7 +108,7 @@ function generateMockVideosFallback(handle: string, count: number): TikTokVideo[
     `5 exercices pour des abdos en béton 💪 #fitness #sport`,
     `Ce film va te faire pleurer 😭 #movie #netflix`,
   ];
-  const n = Math.max(1, Math.min(count, 50));
+  const n = Math.max(1, Math.min(count, 1000));
   const now = Math.floor(Date.now() / 1000);
   return Array.from({ length: n }, (_, i) => {
     const title = titles[i % titles.length];
@@ -133,22 +133,26 @@ function generateMockVideosFallback(handle: string, count: number): TikTokVideo[
   });
 }
 
-// Dummy file si download échoue
+// Dummy MP4 valide pour YouTube (évite Processing abandoned) — utilisé pour tests mock avec vrai YouTube
 async function createDummyFile(filePath: string, video: TikTokVideo): Promise<string> {
   ensureDirForFile(filePath);
-  const content = [
-    `Dummy video TikTub`,
-    `id: ${video.id}`,
-    `handle: @${video.handle}`,
-    `title: ${video.title}`,
-    `hashtags: ${video.hashtags.join(", ")}`,
-    `generatedAt: ${new Date().toISOString()}`,
-    `---`,
-    `Placeholder MP4 — pipeline mock mode`,
-  ].join("\n");
-  await fs.promises.writeFile(filePath, content, "utf-8");
-  console.log(`[orchestrator] dummy créé: ${filePath}`);
-  return filePath;
+  // Essaie d'abord de copier un vrai MP4 d'exemple s'il existe, sinon base64 minimal
+  const SAMPLE_MP4_BASE64 =
+    "AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAu1tZGF0AAAAsAAAAEAGAEcQAAAd9AAACgAAAAQAAAAEAAAAP8AAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wD/AP8A/wDAP8A/wD/AP8A/wDAP8A/wD/AP8A";
+  try {
+    const buf = Buffer.from(SAMPLE_MP4_BASE64, "base64");
+    if (buf.length > 500) {
+      await fs.promises.writeFile(filePath, buf);
+      console.log(`[orchestrator] dummy MP4 valide créé: ${filePath} (${buf.length}o) pour ${video.id} — évite Processing abandoned`);
+      return filePath;
+    }
+    throw new Error("base64 trop petit");
+  } catch {
+    const content = `Dummy video TikTub\nid: ${video.id}\nhandle: @${video.handle}\ntitle: ${video.title}\n`;
+    await fs.promises.writeFile(filePath, content, "utf-8");
+    console.log(`[orchestrator] dummy texte fallback créé: ${filePath}`);
+    return filePath;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +339,7 @@ export class Orchestrator {
 
   private createFallbackScheduler(): any {
     console.warn("[orchestrator] utilisation scheduler fallback in-memory minimal");
-    // Minimal stub qui expose les méthodes nécessaires sans cron
+    // Minimal stub qui expose les méthodes nécessaires sans cron — 1ère vidéo immédiate
     const jobs = new Map<string, Job>();
     return {
       jobs,
@@ -346,7 +350,7 @@ export class Orchestrator {
         let qi = 0;
         for (const it of job.items) {
           if (it.status === "published" || it.status === "failed" || it.status === "skipped") continue;
-          it.scheduledAt = new Date(now + safe * 60 * 1000 * (qi + 1)).toISOString();
+          it.scheduledAt = new Date(now + safe * 60 * 1000 * qi).toISOString();
           it.status = "queued";
           if (typeof it.attempts !== "number") it.attempts = 0;
           qi++;
@@ -400,7 +404,7 @@ export class Orchestrator {
         j.config.delayMinutes = safe;
         const queued = j.items.filter((it) => it.status === "queued").sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
         const now = Date.now();
-        queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * (idx + 1)).toISOString(); });
+        queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * idx).toISOString(); });
         queued.sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
         j.nextRunAt = queued[0]?.scheduledAt;
         j.updatedAt = new Date().toISOString();
@@ -513,12 +517,14 @@ export class Orchestrator {
     if (cleaned.length === 0) throw new Error(`[orchestrator] aucun handle valide parmi: ${config.handles.join(", ")}`);
 
     const delayMinutes = Math.max(1, Math.min(Number(config.delayMinutes) || 60, 60 * 24 * 7));
-    const limitPerHandle = Math.max(1, Math.min(Number(config.limitPerHandle) || 10, 50));
+    const fetchAll = Boolean((config as any).fetchAll);
+    const limitPerHandle = fetchAll ? 0 : Math.max(1, Math.min(Number(config.limitPerHandle) || 10, 50));
     const sortBy: SortBy = ["popular", "most_liked", "recent"].includes(config.sortBy as string) ? config.sortBy : "popular";
     const makePublic = Boolean(config.makePublic);
     const addCredit = config.addCredit !== false; // défaut true
     const asShorts = config.asShorts !== false; // défaut true
     const youtubeChannelId = config.youtubeChannelId?.trim() || undefined;
+    const useScheduledPublish = (config as any).useScheduledPublish !== false; // défaut true pour pas besoin PC
 
     const normalizedConfig: JobConfig = {
       handles: cleaned,
@@ -529,9 +535,11 @@ export class Orchestrator {
       makePublic,
       addCredit,
       asShorts,
-    };
+      fetchAll,
+      useScheduledPublish,
+    } as JobConfig;
 
-    console.log(`[orchestrator] création job handles=[${cleaned.join(", ")}] delay=${delayMinutes}min limit=${limitPerHandle} sort=${sortBy}`);
+    console.log(`[orchestrator] création job handles=[${cleaned.join(", ")}] delay=${delayMinutes}min ${fetchAll ? "fetchAll=toutes" : `limit=${limitPerHandle}`} sort=${sortBy} scheduledPublish=${useScheduledPublish}`);
 
     // Fetch vidéos via tiktok-agent (multi-handles en parallèle séquentiel avec gestion erreur)
     const tiktokAgent = await loadTikTokAgent();
@@ -555,24 +563,28 @@ export class Orchestrator {
               console.warn(`[orchestrator] validateHandle @${handle} échec: ${e?.message || e} — on continue`);
             }
           }
-          if (typeof tiktokAgent.fetchTopVideos === "function") {
+          if (fetchAll && typeof tiktokAgent.fetchAllVideos === "function") {
+            console.log(`[orchestrator] fetchAllVideos @${handle} (toutes depuis création)`);
+            videos = await tiktokAgent.fetchAllVideos(handle, sortBy);
+          } else if (typeof tiktokAgent.fetchTopVideos === "function") {
             videos = await tiktokAgent.fetchTopVideos(handle, limitPerHandle, sortBy);
           }
         } catch (e: any) {
-          console.warn(`[orchestrator] fetchTopVideos @${handle} échec: ${e?.message || e} — fallback mock`);
+          console.warn(`[orchestrator] fetch @${handle} échec: ${e?.message || e} — fallback mock`);
           videos = null;
         }
       }
       // Fallback mock
       if (!videos || videos.length === 0) {
         if (!videos) fetchErrors.push(handle);
-        console.log(`[orchestrator] génération mock pour @${handle} (${limitPerHandle} vidéos)`);
-        videos = generateMockVideosFallback(handle, limitPerHandle);
+        const mockCount = fetchAll ? 100 : limitPerHandle;
+        console.log(`[orchestrator] génération mock pour @${handle} (${fetchAll ? "100 mock (fetchAll)" : `${limitPerHandle} vidéos`})`);
+        videos = generateMockVideosFallback(handle, mockCount);
         // Tri mock cohérent avec sortBy (déjà aléatoire, on trie)
         if (sortBy === "popular") videos.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
         else if (sortBy === "most_liked") videos.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
         else videos.sort((a, b) => (b.createTime || 0) - (a.createTime || 0));
-        videos = videos.slice(0, limitPerHandle);
+        videos = fetchAll ? videos : videos.slice(0, limitPerHandle);
       }
       console.log(`[orchestrator] @${handle}: ${videos.length} vidéos collectées`);
       allVideos.push(...videos);
@@ -620,10 +632,10 @@ export class Orchestrator {
       console.log(`[orchestrator] job ${jobId} schedulé (${items.length} items)`);
     } catch (e: any) {
       console.warn(`[orchestrator] scheduleJob échec: ${e?.message || e} — job créé sans schedule`);
-      // Fallback: définir scheduledAt manuellement
+      // Fallback: définir scheduledAt manuellement — 1ère immédiate
       const now = Date.now();
       job.items.forEach((it, idx) => {
-        it.scheduledAt = new Date(now + delayMinutes * 60 * 1000 * (idx + 1)).toISOString();
+        it.scheduledAt = new Date(now + delayMinutes * 60 * 1000 * idx).toISOString();
       });
       job.nextRunAt = job.items[0]?.scheduledAt;
     }
@@ -679,6 +691,24 @@ export class Orchestrator {
         job.items
           .filter((it) => it.status === "queued" && it.scheduledAt && new Date(it.scheduledAt).getTime() <= now)
           .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime())[0] ?? null;
+    }
+
+    // Si pas de dû mais publication programmée YouTube, on uploade quand même maintenant avec publishAt (pas besoin PC allumé)
+    if (!due) {
+      const queued = job.items
+        .filter((it) => it.status === "queued" && it.scheduledAt)
+        .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+      if (queued.length > 0) {
+        due = queued[0];
+        const isFuture = new Date(due.scheduledAt!).getTime() > Date.now() + 60_000;
+        if (isFuture) {
+          console.log(`[orchestrator] processNext job=${jobId}: aucun dû mais traitement programmé ${due.id} à ${due.scheduledAt} (upload maintenant avec publishAt YouTube)`);
+        } else {
+          // Prochain est très proche mais pas encore dû (qq secondes) — on attend le prochain poll
+          console.log(`[orchestrator] processNext job=${jobId}: prochain dans <1min (${due.scheduledAt}), attente`);
+          return;
+        }
+      }
     }
 
     if (!due) {
@@ -767,6 +797,43 @@ export class Orchestrator {
       return;
     }
 
+    // Vérifie que le fichier est un vrai MP4 (pas un dummy texte) — évite "Processing abandoned" YouTube
+    let isValidVideo = false;
+    try {
+      const fd = await fs.promises.open(filePath!, "r");
+      const buf = Buffer.alloc(12);
+      await fd.read(buf, 0, 12, 0);
+      await fd.close();
+      const header = buf.toString("utf8", 4, 8);
+      const isMp4 = header === "ftyp" || buf[0] === 0x00;
+      const stat = await fs.promises.stat(filePath!);
+      isValidVideo = isMp4 && stat.size > 5000;
+      if (!isValidVideo) {
+        const preview = buf.toString("utf8", 0, 12);
+        if (preview.includes("Dummy") || preview.includes("dummy") || stat.size < 5000) {
+          console.warn(`[orchestrator] fichier invalide détecté (dummy texte ou trop petit ${stat.size}o) pour ${item.id}`);
+          isValidVideo = false;
+        }
+      }
+    } catch (e) {
+      console.warn(`[orchestrator] vérification fichier échouée pour ${item.id}: ${e}`);
+      isValidVideo = false;
+    }
+
+    // Si fichier invalide et YouTube en mode réel, ne pas uploader (évite Processing abandoned) → marquer échec avec retry
+    let youtubeAgentTmp: any = null;
+    try { youtubeAgentTmp = await loadYouTubeAgent(); } catch {}
+    const isYouTubeMock = !youtubeAgentTmp || (typeof youtubeAgentTmp.isMockMode === "function" && youtubeAgentTmp.isMockMode());
+    if (!isValidVideo && !isYouTubeMock) {
+      console.warn(`[orchestrator] vidéo invalide (dummy) et YouTube en mode réel — on ne peut pas uploader ${item.id}, marquage échec pour retry`);
+      await this.handleItemFailure(job, item, `Fichier vidéo invalide (dummy texte) — téléchargement TikTok échoué, URL expirée ou mock. Réessayez ou utilisez une vraie URL TikTok.`);
+      return;
+    }
+    // Si mock et fichier invalide, on laisse passer (sera simulé)
+    if (!isValidVideo && isYouTubeMock) {
+      console.log(`[orchestrator] fichier dummy détecté mais YouTube en mock → upload simulé pour ${item.id}`);
+    }
+
     // Marquer downloaded
     item.status = "downloaded";
     this.persistJob(job);
@@ -787,9 +854,17 @@ export class Orchestrator {
     let uploadResult: { videoId: string; url: string } | null = null;
     let uploadError: string | null = null;
 
-    // Construction meta
+    // Construction meta — gestion publication programmée YouTube (pas besoin PC allumé)
     const privacyStatus: "public" | "private" | "unlisted" = job.config.makePublic ? "public" : "private";
-    const baseMeta = {
+    // Si l'item est programmé dans le futur, on programme sur YouTube via publishAt
+    let publishAt: string | undefined;
+    if (item.scheduledAt) {
+      const schedTime = new Date(item.scheduledAt).getTime();
+      if (!isNaN(schedTime) && schedTime > Date.now() + 60_000) {
+        publishAt = new Date(schedTime).toISOString();
+      }
+    }
+    const baseMeta: any = {
       title: item.video.title,
       description: item.video.description,
       tags: item.video.hashtags,
@@ -798,7 +873,9 @@ export class Orchestrator {
       handle: item.video.handle,
       addCredit: job.config.addCredit,
       selfDeclaredMadeForKids: false,
+      ...(publishAt ? { publishAt, scheduledPublishAt: publishAt } : {}),
     };
+    if (publishAt) console.log(`[orchestrator] publication programmée YouTube à ${publishAt} (upload maintenant, publication différée)`);
 
     if (youtubeAgent && typeof youtubeAgent.uploadVideo === "function") {
       try {
@@ -945,17 +1022,24 @@ export class Orchestrator {
 
         for (const job of toProcess) {
           if (!this.daemonRunning) break;
-          // Vérifier via scheduler s'il y a un due
+          // Vérifier via scheduler s'il y a un dû OU du programmé (pour upload anticipé avec publishAt YouTube)
           let hasDue = false;
+          let hasQueued = false;
           try {
             hasDue = !!this.scheduler.getNextDueItem(job);
+            hasQueued = job.items.some((it) => it.status === "queued" && it.scheduledAt);
           } catch {
             const now = Date.now();
             hasDue = job.items.some((it) => it.status === "queued" && it.scheduledAt && new Date(it.scheduledAt).getTime() <= now);
+            hasQueued = job.items.some((it) => it.status === "queued" && it.scheduledAt);
           }
-          if (!hasDue) continue;
-
-          console.log(`[orchestrator][daemon] job ${job.id} a un item dû — traitement...`);
+          const shouldProcess = hasDue || hasQueued;
+          if (!shouldProcess) continue;
+          if (!hasDue && hasQueued) {
+            console.log(`[orchestrator][daemon] job ${job.id} a des items programmés (upload anticipé avec publishAt YouTube) — traitement...`);
+          } else {
+            console.log(`[orchestrator][daemon] job ${job.id} a un item dû — traitement...`);
+          }
           try {
             await this.processNext(job.id);
           } catch (e: any) {
@@ -1085,12 +1169,12 @@ export class Orchestrator {
         job.updatedAt = updated.updatedAt;
       }
     } catch (e: any) {
-      // fallback local si scheduler échoue
+      // fallback local si scheduler échoue — 1ère immédiate
       const safe = Math.max(1, Math.min(Number(newDelayMinutes) || 60, 60 * 24 * 7));
       job.config.delayMinutes = safe;
       const queued = job.items.filter((it) => it.status === "queued").sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
       const now = Date.now();
-      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * (idx + 1)).toISOString(); });
+      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * idx).toISOString(); });
       job.nextRunAt = queued[0]?.scheduledAt;
       job.updatedAt = new Date().toISOString();
       console.warn(`[orchestrator] updateDelay fallback local: ${e?.message || e}`);

@@ -68,11 +68,13 @@ export async function preview(params: {
   handles: string[];
   limit?: number;
   sortBy?: SortBy;
+  fetchAll?: boolean;
 }): Promise<PreviewResponse> {
   const res = await api.post<ApiResponse<PreviewResponse>>("/tiktok/preview", {
     handles: params.handles,
     limit: params.limit ?? 10,
     sortBy: params.sortBy ?? "popular",
+    fetchAll: params.fetchAll ?? false,
   });
   return unwrap(res);
 }

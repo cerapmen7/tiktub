@@ -2,27 +2,21 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-// @ts-ignore — shared hors rootDir
-import { cleanHandle as cleanHandleShared } from "../../../shared/constants.js";
-
 const router = Router();
 
 // ---------------------------------------------------------------------------
-// Helpers cleanHandle avec fallback
+// Helpers cleanHandle — inline (évite import ESM/CJS cassé en packaged)
 // ---------------------------------------------------------------------------
 
 const HANDLE_REGEX = /^@?([A-Za-z0-9._]{2,24})$/;
 
-function cleanHandleLocal(input: string): string | null {
+function cleanHandle(input: string): string | null {
   const m = input.trim().match(HANDLE_REGEX);
   return m ? m[1].toLowerCase() : null;
 }
 
 function getCleanHandle(input: string): string | null {
-  try {
-    if (typeof cleanHandleShared === "function") return cleanHandleShared(input);
-  } catch {}
-  return cleanHandleLocal(input);
+  return cleanHandle(input);
 }
 
 // ---------------------------------------------------------------------------
@@ -37,6 +31,7 @@ const previewSchema = z.object({
   handles: z.array(z.string().min(1).max(30)).min(1).max(10),
   limit: z.number().int().min(1).max(50).optional().default(10),
   sortBy: z.enum(["popular", "most_liked", "recent"]).optional().default("popular"),
+  fetchAll: z.boolean().optional().default(false),
 });
 
 // ---------------------------------------------------------------------------
@@ -47,6 +42,8 @@ async function loadTikTokAgent(): Promise<any | null> {
   const candidates = [
     "../../../agents/tiktok-agent/src/index.js",
     "../../../../agents/tiktok-agent/src/index.js",
+    "../../../agents/tiktok-agent/dist/agents/tiktok-agent/src/index.js",
+    "../../../../agents/tiktok-agent/dist/agents/tiktok-agent/src/index.js",
   ];
   for (const spec of candidates) {
     try {
@@ -59,14 +56,19 @@ async function loadTikTokAgent(): Promise<any | null> {
     const { fileURLToPath } = await import("node:url");
     const path = await import("node:path");
     const fs = await import("node:fs");
+    const { pathToFileURL } = await import("node:url");
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const root = path.resolve(__dirname, "../../../");
-    const abs = path.join(root, "agents", "tiktok-agent", "src", "index.js");
-    if (fs.existsSync(abs)) {
-      const { pathToFileURL } = await import("node:url");
-      const mod = await import(pathToFileURL(abs).href);
-      if (mod) return mod;
+    const absCandidates = [
+      path.join(root, "agents", "tiktok-agent", "src", "index.js"),
+      path.join(root, "agents", "tiktok-agent", "dist", "agents", "tiktok-agent", "src", "index.js"),
+    ];
+    for (const abs of absCandidates) {
+      if (fs.existsSync(abs)) {
+        const mod = await import(pathToFileURL(abs).href);
+        if (mod) return mod;
+      }
     }
   } catch {}
   return null;
@@ -150,7 +152,7 @@ router.post("/preview", async (req: Request, res: Response) => {
       return;
     }
 
-    const { handles, limit, sortBy } = parsed.data;
+    const { handles, limit, sortBy, fetchAll } = parsed.data as any;
 
     // Nettoyage & validation handles
     const cleaned: string[] = [];
@@ -170,7 +172,8 @@ router.post("/preview", async (req: Request, res: Response) => {
       return;
     }
 
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 10, 50));
+    const isFetchAll = Boolean(fetchAll);
+    const safeLimit = isFetchAll ? 0 : Math.max(1, Math.min(Number(limit) || 10, 50));
     const safeSortBy = (["popular", "most_liked", "recent"] as const).includes(sortBy as any) ? sortBy : "popular";
 
     const agent = await loadTikTokAgent();
@@ -181,11 +184,17 @@ router.post("/preview", async (req: Request, res: Response) => {
     for (const handle of cleaned) {
       try {
         let videos: any[] | null = null;
-        if (agent && typeof agent.fetchTopVideos === "function") {
+        if (agent) {
           try {
-            videos = await agent.fetchTopVideos(handle, safeLimit, safeSortBy);
+            if (isFetchAll && typeof agent.fetchAllVideos === "function") {
+              videos = await agent.fetchAllVideos(handle, safeSortBy);
+              // Pour preview on limite l'affichage à 12 pour ne pas surcharger le frontend, mais on garde total réel
+              if (videos && videos.length > 12) videos = videos.slice(0, 12);
+            } else if (typeof agent.fetchTopVideos === "function") {
+              videos = await agent.fetchTopVideos(handle, safeLimit || 10, safeSortBy);
+            }
           } catch (e: any) {
-            console.warn(`[tiktok/preview] fetchTopVideos @${handle} échec: ${e?.message || e}`);
+            console.warn(`[tiktok/preview] fetch @${handle} échec: ${e?.message || e}`);
             videos = null;
           }
         }
@@ -198,18 +207,20 @@ router.post("/preview", async (req: Request, res: Response) => {
               mockMod = await import("../../../agents/tiktok-agent/src/mock.js");
             } catch {}
             if (mockMod?.generateMockVideos) {
-              videos = mockMod.generateMockVideos(handle, safeLimit);
+              const mockLimit = isFetchAll ? 12 : safeLimit;
+              videos = mockMod.generateMockVideos(handle, mockLimit);
               // tri mock selon sortBy
               if (safeSortBy === "popular") videos!.sort((a: any, b: any) => (b.playCount || 0) - (a.playCount || 0));
               else if (safeSortBy === "most_liked") videos!.sort((a: any, b: any) => (b.likeCount || 0) - (a.likeCount || 0));
               else videos!.sort((a: any, b: any) => (b.createTime || 0) - (a.createTime || 0));
-              videos = videos!.slice(0, safeLimit);
+              videos = videos!.slice(0, mockLimit);
             }
           } catch {}
         }
         if (!videos || videos.length === 0) {
           // ultime fallback local
-          videos = Array.from({ length: safeLimit }, (_, i) => ({
+          const fbLimit = isFetchAll ? 12 : safeLimit;
+          videos = Array.from({ length: fbLimit }, (_, i) => ({
             id: `${handle}_${Date.now()}_${i}`,
             handle,
             title: `Mock vidéo @${handle} #${i} #fyp #viral`,

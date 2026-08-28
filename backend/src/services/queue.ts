@@ -27,8 +27,9 @@ async function loadSchedulerClass(): Promise<any | null> {
   // 1. Relatif depuis backend/src/services/queue.ts -> agents/scheduler-agent
   const relCandidates = [
     "../../../agents/scheduler-agent/src/index.js",
-    // au cas où backend/src/services est plus profond
     "../../../../agents/scheduler-agent/src/index.js",
+    "../../../agents/scheduler-agent/dist/agents/scheduler-agent/src/index.js",
+    "../../../../agents/scheduler-agent/dist/agents/scheduler-agent/src/index.js",
   ];
   for (const spec of relCandidates) {
     try {
@@ -46,13 +47,18 @@ async function loadSchedulerClass(): Promise<any | null> {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const root = path.resolve(__dirname, "../../../");
-    const abs = path.join(root, "agents", "scheduler-agent", "src", "index.js");
-    if (fs.existsSync(abs)) {
-      const { pathToFileURL } = await import("node:url");
-      const mod: any = await import(pathToFileURL(abs).href);
-      if (mod?.Scheduler) {
-        console.log(`[queue] Scheduler chargé via absolu ${abs}`);
-        return mod.Scheduler;
+    const candidates = [
+      path.join(root, "agents", "scheduler-agent", "src", "index.js"),
+      path.join(root, "agents", "scheduler-agent", "dist", "agents", "scheduler-agent", "src", "index.js"),
+    ];
+    for (const abs of candidates) {
+      if (fs.existsSync(abs)) {
+        const { pathToFileURL } = await import("node:url");
+        const mod: any = await import(pathToFileURL(abs).href);
+        if (mod?.Scheduler) {
+          console.log(`[queue] Scheduler chargé via absolu ${abs}`);
+          return mod.Scheduler;
+        }
       }
     }
   } catch {}
@@ -64,6 +70,8 @@ async function loadOrchestratorClass(): Promise<any | null> {
   const relCandidates = [
     "../../../agents/orchestrator-agent/src/index.js",
     "../../../../agents/orchestrator-agent/src/index.js",
+    "../../../agents/orchestrator-agent/dist/agents/orchestrator-agent/src/index.js",
+    "../../../../agents/orchestrator-agent/dist/agents/orchestrator-agent/src/index.js",
   ];
   for (const spec of relCandidates) {
     try {
@@ -80,13 +88,18 @@ async function loadOrchestratorClass(): Promise<any | null> {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const root = path.resolve(__dirname, "../../../");
-    const abs = path.join(root, "agents", "orchestrator-agent", "src", "index.js");
-    if (fs.existsSync(abs)) {
-      const { pathToFileURL } = await import("node:url");
-      const mod: any = await import(pathToFileURL(abs).href);
-      if (mod?.Orchestrator) {
-        console.log(`[queue] Orchestrator chargé via absolu ${abs}`);
-        return mod.Orchestrator;
+    const candidates = [
+      path.join(root, "agents", "orchestrator-agent", "src", "index.js"),
+      path.join(root, "agents", "orchestrator-agent", "dist", "agents", "orchestrator-agent", "src", "index.js"),
+    ];
+    for (const abs of candidates) {
+      if (fs.existsSync(abs)) {
+        const { pathToFileURL } = await import("node:url");
+        const mod: any = await import(pathToFileURL(abs).href);
+        if (mod?.Orchestrator) {
+          console.log(`[queue] Orchestrator chargé via absolu ${abs}`);
+          return mod.Orchestrator;
+        }
       }
     }
   } catch {}
@@ -193,7 +206,7 @@ function createFallbackScheduler(): any {
       let qi = 0;
       for (const it of job.items) {
         if (it.status === "published" || it.status === "failed" || it.status === "skipped") continue;
-        it.scheduledAt = new Date(now + safe * 60 * 1000 * (qi + 1)).toISOString();
+        it.scheduledAt = new Date(now + safe * 60 * 1000 * qi).toISOString();
         it.status = "queued";
         if (typeof it.attempts !== "number") it.attempts = 0;
         qi++;
@@ -229,7 +242,7 @@ function createFallbackScheduler(): any {
       j.config.delayMinutes = safe;
       const queued = j.items.filter((it) => it.status === "queued").sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
       const now = Date.now();
-      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * (idx + 1)).toISOString(); });
+      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * idx).toISOString(); });
       queued.sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
       j.nextRunAt = queued[0]?.scheduledAt; j.updatedAt = new Date().toISOString();
     },
@@ -270,14 +283,17 @@ function createFallbackOrchestrator(scheduler: any): any {
       });
 
       const handles = config.handles.map((h: string) => h.replace(/^@/, "").toLowerCase());
+      const isFetchAll = Boolean((config as any).fetchAll);
       const allVideos: any[] = [];
       for (const h of handles) {
-        const vids = generateMockVideos(h, config.limitPerHandle);
+        const count = isFetchAll ? 100 : config.limitPerHandle;
+        const vids = generateMockVideos(h, count);
         // tri
         if (config.sortBy === "most_liked") vids.sort((a: any, b: any) => (b.likeCount || 0) - (a.likeCount || 0));
         else if (config.sortBy === "recent") vids.sort((a: any, b: any) => (b.createTime || 0) - (a.createTime || 0));
         else vids.sort((a: any, b: any) => (b.playCount || 0) - (a.playCount || 0));
-        allVideos.push(...vids.slice(0, config.limitPerHandle));
+        const sliced = isFetchAll ? vids : vids.slice(0, config.limitPerHandle);
+        allVideos.push(...sliced);
       }
       const jobId = uuidv4();
       const nowIso = new Date().toISOString();
@@ -301,7 +317,7 @@ function createFallbackOrchestrator(scheduler: any): any {
       const delay = config.delayMinutes ?? 60;
       const safe = Math.max(1, Math.min(Number(delay) || 60, 60 * 24 * 7));
       const now = Date.now();
-      items.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * (idx + 1)).toISOString(); });
+      items.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * idx).toISOString(); });
       job.nextRunAt = items[0]?.scheduledAt;
       jobs.set(jobId, job);
       try { scheduler?.jobs?.set?.(jobId, job); } catch {}
@@ -460,7 +476,7 @@ export async function queueRetryJob(id: string): Promise<Job | null> {
       const safe = Math.max(1, Math.min(Number(delay) || 60, 60 * 24 * 7));
       const now = Date.now();
       const queued = job.items.filter((it) => it.status === "queued").sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
-      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * (idx + 1)).toISOString(); });
+      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * idx).toISOString(); });
       job.nextRunAt = queued[0]?.scheduledAt;
       job.status = "pending";
     }
@@ -496,7 +512,7 @@ export async function queueUpdateDelay(id: string, newDelayMinutes: number): Pro
       job.config.delayMinutes = safe;
       const queued = job.items.filter((it) => it.status === "queued").sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
       const now = Date.now();
-      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * (idx + 1)).toISOString(); });
+      queued.forEach((it, idx) => { it.scheduledAt = new Date(now + safe * 60 * 1000 * idx).toISOString(); });
       job.nextRunAt = queued[0]?.scheduledAt;
       job.updatedAt = new Date().toISOString();
     }

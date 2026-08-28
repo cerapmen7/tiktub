@@ -51,14 +51,16 @@ function Footer() {
 
 export default function App() {
   const location = useLocation();
-  // background gradients
+  // background gradients - premium
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      {/* bg gradients */}
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#07070b]">
+      {/* premium bg */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-32 -right-32 h-[480px] w-[480px] rounded-full blur-[120px] opacity-20" style={{ background: "radial-gradient(circle at center, #7c3aed 0%, transparent 70%)" }} />
-        <div className="absolute -bottom-32 -left-32 h-[520px] w-[520px] rounded-full blur-[120px] opacity-15" style={{ background: "radial-gradient(circle at center, #ec4899 0%, transparent 70%)" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[800px] rounded-full blur-[140px] opacity-[0.07]" style={{ background: "radial-gradient(circle at center, #f59e0b 0%, transparent 70%)" }} />
+        <div className="absolute inset-0 grid-pattern opacity-[0.03]" />
+        <div className="absolute -top-32 -right-32 h-[600px] w-[600px] rounded-full blur-[130px] opacity-[0.18]" style={{ background: "radial-gradient(circle at center, #7c3aed 0%, #a78bfa 30%, transparent 70%)" }} />
+        <div className="absolute -bottom-32 -left-32 h-[650px] w-[650px] rounded-full blur-[130px] opacity-[0.12]" style={{ background: "radial-gradient(circle at center, #ec4899 0%, #f472b6 30%, transparent 70%)" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[900px] w-[900px] rounded-full blur-[160px] opacity-[0.05]" style={{ background: "radial-gradient(circle at center, #f59e0b 0%, #fbbf24 20%, transparent 70%)" }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 h-px w-full max-w-7xl bg-gradient-to-r from-transparent via-violet-500/10 to-transparent" />
       </div>
 
       <Navbar />

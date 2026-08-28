@@ -12,6 +12,8 @@ async function loadYouTubeAgent(): Promise<any | null> {
   const rels = [
     "../../../agents/youtube-agent/src/index.js",
     "../../../../agents/youtube-agent/src/index.js",
+    "../../../agents/youtube-agent/dist/agents/youtube-agent/src/index.js",
+    "../../../../agents/youtube-agent/dist/agents/youtube-agent/src/index.js",
   ];
   for (const spec of rels) {
     try {
@@ -23,14 +25,19 @@ async function loadYouTubeAgent(): Promise<any | null> {
     const { fileURLToPath } = await import("node:url");
     const path = await import("node:path");
     const fs = await import("node:fs");
+    const { pathToFileURL } = await import("node:url");
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const root = path.resolve(__dirname, "../../../");
-    const abs = path.join(root, "agents", "youtube-agent", "src", "index.js");
-    if (fs.existsSync(abs)) {
-      const { pathToFileURL } = await import("node:url");
-      const mod = await import(pathToFileURL(abs).href);
-      if (mod) return mod;
+    const candidates = [
+      path.join(root, "agents", "youtube-agent", "src", "index.js"),
+      path.join(root, "agents", "youtube-agent", "dist", "agents", "youtube-agent", "src", "index.js"),
+    ];
+    for (const abs of candidates) {
+      if (fs.existsSync(abs)) {
+        const mod = await import(pathToFileURL(abs).href);
+        if (mod) return mod;
+      }
     }
   } catch {}
   return null;

@@ -2,28 +2,23 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-// @ts-ignore — shared hors rootDir
-import { cleanHandle as cleanHandleShared } from "../../../shared/constants.js";
 import { queue } from "../services/queue.js";
 import { db } from "../services/db.js";
 
 const router = Router();
 
 // ---------------------------------------------------------------------------
-// Helpers cleanHandle
+// Helpers cleanHandle — inline (évite import ESM/CJS cassé en packaged)
 // ---------------------------------------------------------------------------
 
 const HANDLE_REGEX = /^@?([A-Za-z0-9._]{2,24})$/;
 
-function cleanHandleLocal(input: string): string | null {
+function cleanHandle(input: string): string | null {
   const m = input.trim().match(HANDLE_REGEX);
   return m ? m[1].toLowerCase() : null;
 }
 function getCleanHandle(input: string): string | null {
-  try {
-    if (typeof cleanHandleShared === "function") return cleanHandleShared(input);
-  } catch {}
-  return cleanHandleLocal(input);
+  return cleanHandle(input);
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +34,8 @@ const createJobSchema = z.object({
   makePublic: z.boolean().optional().default(false),
   addCredit: z.boolean().optional().default(true),
   asShorts: z.boolean().optional().default(true),
+  fetchAll: z.boolean().optional().default(false),
+  useScheduledPublish: z.boolean().optional().default(true),
   // Alias supportés pour compat frontend
   delay: z.number().int().min(1).optional(),
   limit: z.number().int().min(1).optional(),
@@ -88,12 +85,14 @@ router.post("/", async (req: Request, res: Response) => {
     const config = {
       handles: cleaned,
       delayMinutes: Math.max(1, Math.min(Number(input.delayMinutes) || 60, 60 * 24 * 7)),
-      limitPerHandle: Math.max(1, Math.min(Number(input.limitPerHandle) || 10, 50)),
+      limitPerHandle: input.fetchAll ? 0 : Math.max(1, Math.min(Number(input.limitPerHandle) || 10, 50)),
       sortBy: input.sortBy as "popular" | "most_liked" | "recent",
       youtubeChannelId: input.youtubeChannelId ? String(input.youtubeChannelId).trim() : undefined,
       makePublic: Boolean(input.makePublic),
       addCredit: input.addCredit !== false,
       asShorts: input.asShorts !== false,
+      fetchAll: Boolean(input.fetchAll),
+      useScheduledPublish: input.useScheduledPublish !== false,
     };
 
     try {

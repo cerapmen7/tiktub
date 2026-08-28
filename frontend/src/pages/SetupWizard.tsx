@@ -87,6 +87,7 @@ export default function SetupWizard() {
             handles,
             limit: wizardConfig.limitPerHandle,
             sortBy: wizardConfig.sortBy,
+            fetchAll: wizardConfig.fetchAll,
           });
           if (cancelled) return;
           // data.videos may be array or record
@@ -100,7 +101,7 @@ export default function SetupWizard() {
         cancelled = true;
       };
     }
-  }, [step, handles, wizardConfig.limitPerHandle, wizardConfig.sortBy, setPreview]);
+  }, [step, handles, wizardConfig.limitPerHandle, wizardConfig.sortBy, wizardConfig.fetchAll, setPreview]);
 
   const handleLaunch = async () => {
     if (!handles.length) {
@@ -118,8 +119,10 @@ export default function SetupWizard() {
         makePublic: wizardConfig.makePublic,
         addCredit: wizardConfig.addCredit,
         asShorts: true,
-      });
-      pushToast(`Job créé: ${job.id.slice(0, 8)}`, "success");
+        fetchAll: wizardConfig.fetchAll,
+        useScheduledPublish: wizardConfig.useScheduledPublish,
+      } as any);
+      pushToast(`Job créé: ${job.id.slice(0, 8)} — ${wizardConfig.fetchAll ? "toutes les vidéos" : `${wizardConfig.limitPerHandle * handles.length} vidéos`} programmées`, "success");
       navigate("/dashboard");
     } catch (e: any) {
       pushToast(e.message || "Échec création job", "error");
@@ -198,6 +201,10 @@ export default function SetupWizard() {
               onMakePublic={(v) => setWizardConfig({ makePublic: v })}
               addCredit={wizardConfig.addCredit}
               onAddCredit={(v) => setWizardConfig({ addCredit: v })}
+              fetchAll={wizardConfig.fetchAll}
+              onFetchAll={(v) => setWizardConfig({ fetchAll: v })}
+              useScheduledPublish={wizardConfig.useScheduledPublish}
+              onUseScheduledPublish={(v) => setWizardConfig({ useScheduledPublish: v })}
             />
           )}
           {step === 5 && (
@@ -283,23 +290,30 @@ export default function SetupWizard() {
 function Step1({ onNext }: { onNext: () => void }) {
   return (
     <div className="space-y-6 py-2">
-      <div className="rounded-2xl gradient-brand-subtle border border-violet-500/20 p-6 sm:p-8 flex flex-col sm:flex-row gap-6 items-start">
-        <div className="h-16 w-16 rounded-2xl gradient-brand grid place-items-center shadow-lg shadow-violet-600/20 flex-shrink-0">
-          <Film className="h-8 w-8 text-white" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-extrabold tracking-tight text-white">Bienvenue sur TikTub 🎬</h2>
-          <p className="text-sm leading-relaxed text-zinc-300">
-            TikTub republie automatiquement tes TikToks préférés vers YouTube Shorts. Connecte ton compte YouTube, choisis 1 à 10 créateurs TikTok, règle le délai et laisse le pipeline s&apos;occuper du téléchargement + upload.
+      <div className="relative overflow-hidden rounded-[24px] border border-violet-500/20 p-7 sm:p-8 flex flex-col sm:flex-row gap-6 items-start bg-gradient-to-br from-zinc-900 via-[#0f0a1e] to-zinc-900 shadow-2xl shadow-violet-900/20">
+        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full blur-[80px] opacity-20" style={{background:"radial-gradient(circle,#7c3aed,transparent 70%)"}} />
+        <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full blur-[70px] opacity-15" style={{background:"radial-gradient(circle,#ec4899,transparent 70%)"}} />
+        <img src="/logo.svg" alt="TikTub" className="h-20 w-20 rounded-2xl shadow-xl shadow-violet-600/20 flex-shrink-0 relative" />
+        <div className="space-y-3 relative">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[11px] font-bold tracking-widest uppercase text-violet-200 backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Nouveau • TikTub Studio PRO
+          </div>
+          <h2 className="text-3xl font-black tracking-tight font-display leading-none">
+            <span className="text-gradient-premium">Double ton audience.</span><br/>
+            <span className="text-white">Sans lever le petit doigt.</span>
+          </h2>
+          <p className="text-sm leading-relaxed text-zinc-300 max-w-xl">
+            <b className="text-white">TikTub</b> transforme tes TikToks viraux en <b className="text-white">YouTube Shorts</b> automatiquement. <span className="text-violet-300 font-medium">1ère vidéo instantanée</span>, les suivantes <span className="text-emerald-300 font-medium">programmées sur YouTube</span> — même PC éteint.
           </p>
-          <ul className="grid sm:grid-cols-3 gap-3 pt-3 text-xs">
+          <p className="text-xs italic text-zinc-400">« De TikTok à YouTube en un clic. Tes vues, multipliées. »</p>
+          <ul className="grid sm:grid-cols-3 gap-3 pt-2 text-xs">
             {[
-              { t: "Multi-comptes", d: "Jusqu'à 10 handles" },
-              { t: "Pipeline auto", d: "Queue + retry" },
-              { t: "YouTube Shorts", d: "Upload natif" },
+              { t: "Viral ×2", d: "Recycle ton contenu" },
+              { t: "100% Auto", d: "Télécharge → Upload" },
+              { t: "Pro & Safe", d: "Crédits + Shorts natif" },
             ].map((f) => (
-              <li key={f.t} className="rounded-xl bg-zinc-900/70 border border-zinc-700/50 p-3">
-                <div className="font-semibold text-white">{f.t}</div>
+              <li key={f.t} className="rounded-xl bg-white/[0.04] backdrop-blur border border-white/10 p-3 hover:bg-white/[0.06] transition">
+                <div className="font-bold text-white tracking-tight">{f.t}</div>
                 <div className="text-zinc-400">{f.d}</div>
               </li>
             ))}
@@ -444,6 +458,10 @@ function Step4({
   onMakePublic,
   addCredit,
   onAddCredit,
+  fetchAll,
+  onFetchAll,
+  useScheduledPublish,
+  onUseScheduledPublish,
 }: {
   delay: number;
   onDelay: (v: number) => void;
@@ -455,42 +473,66 @@ function Step4({
   onMakePublic: (v: boolean) => void;
   addCredit: boolean;
   onAddCredit: (v: boolean) => void;
+  fetchAll: boolean;
+  onFetchAll: (v: boolean) => void;
+  useScheduledPublish: boolean;
+  onUseScheduledPublish: (v: boolean) => void;
 }) {
   return (
     <div className="space-y-6 py-2">
       <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-          <Settings2 className="h-5 w-5 text-violet-400" /> Configuration
+        <h2 className="text-xl font-bold tracking-tight flex items-center gap-2 font-display">
+          <span className="h-8 w-8 rounded-xl bg-violet-500/15 border border-violet-500/20 grid place-items-center">
+            <Settings2 className="h-4 w-4 text-violet-400" />
+          </span>
+          Configuration premium
         </h2>
-        <p className="text-sm text-zinc-400">Règle le délai, le nombre de vidéos et le tri.</p>
+        <p className="text-sm text-zinc-400">Règle le délai, le volume et la programmation YouTube.</p>
       </div>
 
       <DelaySlider value={delay} onChange={onDelay} />
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-zinc-200 flex items-center gap-2">
-            <Film className="h-4 w-4 text-violet-400" /> Vidéos par compte
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={5}
-              max={50}
-              step={1}
-              value={limit}
-              onChange={(e) => onLimit(Number(e.target.value))}
-              className="flex-1"
-            />
-            <span className="rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-sm font-bold text-white min-w-[52px] text-center">
-              {limit}
+        <div className={`space-y-2 rounded-2xl border p-4 transition ${fetchAll ? "bg-violet-500/10 border-violet-500/30" : "bg-zinc-900/50 border-zinc-800"}`}>
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <Film className="h-4 w-4 text-violet-400" /> Toutes les vidéos
+              {fetchAll && <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">ACTIF</span>}
             </span>
-          </div>
-          <p className="text-xs text-zinc-500">5 à 50 vidéos par handle (total max {limit}×n).</p>
+            <input type="checkbox" checked={fetchAll} onChange={(e) => onFetchAll(e.target.checked)} className="h-5 w-10 appearance-none rounded-full bg-zinc-700 relative transition checked:bg-violet-600 before:absolute before:h-4 before:w-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition checked:before:translate-x-5" />
+          </label>
+          {!fetchAll ? (
+            <>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={5}
+                  max={50}
+                  step={1}
+                  value={limit}
+                  onChange={(e) => onLimit(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="rounded-xl bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-sm font-bold text-white min-w-[56px] text-center shadow-inner">
+                  {limit}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">5 à 50 vidéos par handle.</p>
+            </>
+          ) : (
+            <div className="rounded-xl bg-zinc-950 border border-violet-500/20 p-3">
+              <p className="text-xs font-semibold text-violet-200 flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" /> Mode complet activé
+              </p>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Récupère <b className="text-white">toutes les vidéos depuis la création</b> de la chaîne (jusqu'à 1000). Idéal pour migrer une chaîne entière. La 1ère part immédiatement, les suivantes programmées.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-zinc-200">Tri</label>
+          <label className="text-sm font-semibold text-zinc-100">Tri</label>
           <div className="grid grid-cols-3 gap-1.5">
             {[
               { v: "popular", l: "Populaires", e: "🔥" },
@@ -500,28 +542,36 @@ function Step4({
               <button
                 key={o.v}
                 onClick={() => onSort(o.v as SortBy)}
-                className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${sortBy === o.v ? "bg-violet-600 border-violet-500 text-white shadow" : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-white"}`}
+                className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${sortBy === o.v ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-600/20" : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-white"}`}
               >
                 <span className="block text-base">{o.e}</span>
                 {o.l}
               </button>
             ))}
           </div>
+          <p className="text-xs text-zinc-500 pt-1">Ordre de repost sur YouTube.</p>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid sm:grid-cols-3 gap-3">
+        <label className={`flex flex-col gap-2 rounded-xl border p-4 cursor-pointer transition ${useScheduledPublish ? "bg-emerald-500/10 border-emerald-500/30" : "bg-zinc-800 border-zinc-700 hover:border-zinc-600"}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-white">Programmé</span>
+            <input type="checkbox" checked={useScheduledPublish} onChange={(e) => onUseScheduledPublish(e.target.checked)} className="h-5 w-10 appearance-none rounded-full bg-zinc-700 relative transition checked:bg-emerald-600 before:absolute before:h-4 before:w-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition checked:before:translate-x-5" />
+          </div>
+          <span className="text-xs text-zinc-400 leading-relaxed">{useScheduledPublish ? "✓ YouTube publie à l'heure, PC éteint OK" : "Upload en direct, PC doit rester allumé"}</span>
+        </label>
         <label className="flex items-center justify-between rounded-xl bg-zinc-800 border border-zinc-700 p-4 cursor-pointer hover:border-zinc-600 transition">
           <div>
-            <div className="text-sm font-medium text-white">Rendre public</div>
-            <div className="text-xs text-zinc-500">{makePublic ? "Public immédiatement" : "Privé / non répertorié"}</div>
+            <div className="text-sm font-medium text-white">Public</div>
+            <div className="text-xs text-zinc-500">{makePublic ? "Public" : "Privé"}</div>
           </div>
           <input type="checkbox" checked={makePublic} onChange={(e) => onMakePublic(e.target.checked)} className="h-5 w-10 appearance-none rounded-full bg-zinc-700 relative transition checked:bg-violet-600 before:absolute before:h-4 before:w-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition checked:before:translate-x-5" />
         </label>
         <label className="flex items-center justify-between rounded-xl bg-zinc-800 border border-zinc-700 p-4 cursor-pointer hover:border-zinc-600 transition">
           <div>
-            <div className="text-sm font-medium text-white">Ajouter crédit</div>
-            <div className="text-xs text-zinc-500">@handle dans desc.</div>
+            <div className="text-sm font-medium text-white">Crédit</div>
+            <div className="text-xs text-zinc-500">@handle</div>
           </div>
           <input type="checkbox" checked={addCredit} onChange={(e) => onAddCredit(e.target.checked)} className="h-5 w-10 appearance-none rounded-full bg-zinc-700 relative transition checked:bg-violet-600 before:absolute before:h-4 before:w-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition checked:before:translate-x-5" />
         </label>
@@ -616,14 +666,17 @@ function Step6({
   youtubeConnected,
 }: {
   handles: string[];
-  config: { delayMinutes: number; limitPerHandle: number; sortBy: SortBy; makePublic: boolean; addCredit: boolean };
+  config: { delayMinutes: number; limitPerHandle: number; sortBy: SortBy; makePublic: boolean; addCredit: boolean; fetchAll?: boolean; useScheduledPublish?: boolean };
   channelId: string | null;
   onLaunch: () => void;
   launching: boolean;
   youtubeConnected: boolean;
 }) {
-  const totalVideos = handles.length * config.limitPerHandle;
-  const durationHours = Math.round((totalVideos * config.delayMinutes) / 60);
+  const isFetchAll = Boolean((config as any).fetchAll);
+  const totalVideos = isFetchAll ? handles.length * 100 : handles.length * config.limitPerHandle;
+  const totalLabel = isFetchAll ? `Toutes (~${totalVideos}+)` : `${totalVideos} vidéos`;
+  const durationHours = Math.round(((totalVideos - 1) * config.delayMinutes) / 60);
+  const useScheduled = (config as any).useScheduledPublish !== false;
   return (
     <div className="space-y-6 py-2">
       <div className="text-center space-y-2">
@@ -636,20 +689,31 @@ function Step6({
 
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 space-y-2">
-          <h3 className="text-xs font-bold tracking-widest uppercase text-zinc-400">Récapitulatif</h3>
+          <h3 className="text-xs font-bold tracking-widest uppercase text-zinc-400">Récapitulatif premium</h3>
           <ul className="space-y-1.5 text-sm">
             <li className="flex justify-between"><span className="text-zinc-500">Comptes</span><b className="text-white">{handles.join(", ")}</b></li>
-            <li className="flex justify-between"><span className="text-zinc-500">Vidéos/compte</span><b className="text-white">{config.limitPerHandle}</b></li>
-            <li className="flex justify-between"><span className="text-zinc-500">Total estimé</span><b className="text-white">{totalVideos} vidéos</b></li>
-            <li className="flex justify-between"><span className="text-zinc-500">Délai</span><b className="text-white">{config.delayMinutes} min</b></li>
-            <li className="flex justify-between"><span className="text-zinc-500">Durée totale</span><b className="text-violet-300">~{durationHours}h</b></li>
+            <li className="flex justify-between"><span className="text-zinc-500">Vidéos/compte</span><b className={isFetchAll ? "text-violet-300" : "text-white"}>{isFetchAll ? "Toutes (∞)" : config.limitPerHandle}</b></li>
+            <li className="flex justify-between"><span className="text-zinc-500">Total estimé</span><b className="text-white">{totalLabel}</b></li>
+            <li className="flex justify-between"><span className="text-zinc-500">Délai</span><b className="text-white">{config.delayMinutes} min <span className="text-emerald-300 font-normal">• 1ère immédiate</span></b></li>
+            <li className="flex justify-between"><span className="text-zinc-500">Durée totale</span><b className="text-violet-300">~{durationHours}h</b> <span className="text-zinc-500 font-normal">({useScheduled ? "programmé" : "direct"})</span></li>
             <li className="flex justify-between"><span className="text-zinc-500">Tri</span><b className="text-white">{config.sortBy}</b></li>
             <li className="flex justify-between"><span className="text-zinc-500">Chaîne YT</span><b className="text-white truncate max-w-[150px]">{channelId || "Auto"}</b></li>
           </ul>
+          {useScheduled && (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-200">
+              ✓ Publication programmée YouTube — pas besoin de laisser le PC allumé. 1ère immédiate, suivantes à l'heure prévue.
+            </div>
+          )}
         </div>
         <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4 space-y-3">
           <h3 className="text-xs font-bold tracking-widest uppercase text-zinc-400">Options</h3>
           <div className="space-y-2 text-sm">
+            <div className={`flex items-center gap-2 ${isFetchAll ? "text-violet-300" : "text-zinc-500"}`}>
+              {isFetchAll ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />} {isFetchAll ? "Toutes les vidéos" : `${config.limitPerHandle} vidéos`}
+            </div>
+            <div className={`flex items-center gap-2 ${useScheduled ? "text-emerald-300" : "text-zinc-500"}`}>
+              {useScheduled ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />} {useScheduled ? "Programmé YouTube" : "Direct"}
+            </div>
             <div className={`flex items-center gap-2 ${config.makePublic ? "text-emerald-300" : "text-zinc-500"}`}>
               {config.makePublic ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />} {config.makePublic ? "Public" : "Privé"}
             </div>

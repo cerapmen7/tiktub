@@ -47,7 +47,7 @@ export function generateMockProfile(handle) {
  */
 export function generateMockVideos(handle, count) {
     const clean = handle.replace(/^@/, "").toLowerCase();
-    const n = Math.max(1, Math.min(count, 50));
+    const n = Math.max(1, Math.min(count, 1000));
     const now = Math.floor(Date.now() / 1000);
     return Array.from({ length: n }, (_, i) => {
         const desc = MOCK_DESCRIPTIONS[i % MOCK_DESCRIPTIONS.length];

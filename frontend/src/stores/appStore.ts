@@ -39,6 +39,8 @@ interface AppState {
     sortBy: SortBy;
     makePublic: boolean;
     addCredit: boolean;
+    fetchAll: boolean;
+    useScheduledPublish: boolean;
   };
   // Preview
   preview: PreviewState;
@@ -90,6 +92,8 @@ export const useAppStore = create<AppState>((set) => ({
     sortBy: "popular",
     makePublic: false,
     addCredit: true,
+    fetchAll: false,
+    useScheduledPublish: true,
   },
 
   preview: {
